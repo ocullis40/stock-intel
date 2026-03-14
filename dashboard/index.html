@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stock Intel</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #090b10;
+    --card: rgba(255,255,255,0.018);
+    --card-hover: rgba(255,255,255,0.032);
+    --border: rgba(255,255,255,0.05);
+    --text: #fff;
+    --text-dim: rgba(255,255,255,0.5);
+    --text-muted: rgba(255,255,255,0.25);
+    --green: #34d399;
+    --red: #f87171;
+    --yellow: #fbbf24;
+    --gray: #94a3b8;
+    --mono: 'JetBrains Mono', 'SF Mono', monospace;
+    --sans: 'DM Sans', 'Helvetica Neue', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); padding: 30px 24px; min-height: 100vh; }
+  .container { max-width: 880px; margin: 0 auto; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
+  .header h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.4px; }
+  .header .subtitle { font-size: 11px; color: var(--text-muted); font-family: var(--mono); margin-top: 4px; }
+  .btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); color: rgba(255,255,255,0.55); border-radius: 7px; padding: 7px 13px; font-size: 12px; cursor: pointer; font-family: var(--sans); font-weight: 500; transition: all 0.2s; }
+  .btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+  .btn:disabled { opacity: 0.4; cursor: wait; }
+  .btn-green { background: rgba(52,211,153,0.08); border-color: rgba(52,211,153,0.18); color: var(--green); font-weight: 600; }
+  .btn-green:hover { background: rgba(52,211,153,0.15); }
+  .btn-group { display: flex; gap: 7px; }
+  .ticker-bar { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 20px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .ticker-tag { display: inline-flex; align-items: center; gap: 5px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; font-family: var(--mono); font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.7); }
+  .ticker-tag .remove { background: none; border: none; color: rgba(255,255,255,0.2); font-size: 14px; cursor: pointer; padding: 0 2px; line-height: 1; transition: color 0.15s; }
+  .ticker-tag .remove:hover { color: var(--red); }
+  .add-input { background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; font-family: var(--mono); font-size: 12px; color: #fff; outline: none; width: 80px; }
+  .add-input::placeholder { color: rgba(255,255,255,0.2); }
+  .add-input:focus { border-color: rgba(52,211,153,0.3); }
+  .progress-bar { height: 2px; background: rgba(255,255,255,0.04); border-radius: 1px; overflow: hidden; margin-bottom: 6px; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--green), #6ee7b7); transition: width 0.4s ease; }
+  .progress-text { font-size: 10px; color: var(--text-muted); font-family: var(--mono); margin-bottom: 18px; }
+  .cards { display: flex; flex-direction: column; gap: 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 22px 24px; transition: background 0.2s; }
+  .card:hover { background: var(--card-hover); }
+  .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+  .card-ticker { font-family: var(--mono); font-size: 19px; font-weight: 700; letter-spacing: 0.5px; }
+  .card-name { font-size: 12px; color: var(--text-dim); margin-left: 10px; }
+  .card-price { font-family: var(--mono); font-size: 20px; font-weight: 700; text-align: right; }
+  .card-change { font-family: var(--mono); font-size: 11px; font-weight: 600; text-align: right; }
+  .badge { display: inline-flex; align-items: center; gap: 3px; border-radius: 5px; padding: 2px 7px; font-size: 10px; font-weight: 700; font-family: var(--mono); letter-spacing: 0.3px; }
+  .badge-bullish { background: rgba(52,211,153,0.07); border: 1px solid rgba(52,211,153,0.18); color: var(--green); }
+  .badge-bearish { background: rgba(248,113,113,0.07); border: 1px solid rgba(248,113,113,0.18); color: var(--red); }
+  .badge-neutral { background: rgba(148,163,184,0.07); border: 1px solid rgba(148,163,184,0.18); color: var(--gray); }
+  .badge-mixed { background: rgba(251,191,36,0.07); border: 1px solid rgba(251,191,36,0.18); color: var(--yellow); }
+  .tech-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: rgba(255,255,255,0.015); border-radius: 10px; padding: 14px 16px; border: 1px solid rgba(255,255,255,0.04); margin-bottom: 14px; }
+  .tech-label { font-size: 9px; color: var(--text-muted); font-family: var(--mono); letter-spacing: 1px; margin-top: 4px; }
+  .tech-value { font-family: var(--mono); font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.7); }
+  .tech-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  .tech-pct { font-size: 10px; font-family: var(--mono); font-weight: 600; }
+  .ma-signal { font-size: 12px; color: rgba(255,255,255,0.45); font-style: italic; margin-bottom: 12px; line-height: 1.45; padding: 8px 12px; background: rgba(255,255,255,0.015); border-radius: 8px; border-left: 2px solid rgba(255,255,255,0.08); }
+  .headline { font-size: 14px; font-weight: 600; color: rgba(255,255,255,0.82); line-height: 1.5; margin-bottom: 12px; }
+  .insight { font-size: 13px; color: var(--text-dim); line-height: 1.5; padding: 5px 0 5px 14px; border-left: 2px solid rgba(255,255,255,0.05); margin-bottom: 3px; }
+  .section-label { font-size: 10px; font-weight: 700; color: var(--text-muted); font-family: var(--mono); letter-spacing: 1.5px; cursor: pointer; user-select: none; margin-bottom: 8px; }
+  .tag-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .tag-box { flex: 1 1 200px; border-radius: 8px; padding: 10px 13px; }
+  .tag-box-green { background: rgba(52,211,153,0.035); border: 1px solid rgba(52,211,153,0.08); }
+  .tag-box-red { background: rgba(248,113,113,0.035); border: 1px solid rgba(248,113,113,0.08); }
+  .tag-box-label { font-size: 9px; font-weight: 700; font-family: var(--mono); letter-spacing: 1.2px; margin-bottom: 4px; }
+  .tag-box-text { font-size: 12px; color: rgba(255,255,255,0.48); line-height: 1.45; }
+  .trace { margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.03); padding-top: 10px; }
+  .trace-toggle { font-size: 10px; font-weight: 700; color: var(--text-muted); font-family: var(--mono); letter-spacing: 1.5px; cursor: pointer; user-select: none; }
+  .trace-step { display: flex; align-items: flex-start; gap: 8px; padding: 4px 0; font-size: 11px; font-family: var(--mono); color: rgba(255,255,255,0.3); }
+  .trace-dot { width: 6px; height: 6px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
+  .trace-dot.success { background: var(--green); }
+  .trace-dot.partial { background: var(--yellow); }
+  .trace-dot.failed { background: var(--red); }
+  .trace-detail { color: rgba(255,255,255,0.2); font-size: 10px; }
+  .trace-duration { color: rgba(255,255,255,0.15); margin-left: auto; white-space: nowrap; }
+  .confidence { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-family: var(--mono); margin-left: 8px; }
+  .conf-high { color: var(--green); }
+  .conf-medium { color: var(--yellow); }
+  .conf-low { color: var(--red); }
+  .skeleton { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 24px; min-height: 200px; }
+  .skel-bar { background: rgba(255,255,255,0.04); border-radius: 4px; animation: pulse 1.8s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.75; } }
+  .footer { margin-top: 36px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.03); font-size: 10px; color: var(--text-muted); font-family: var(--mono); display: flex; justify-content: space-between; }
+  .empty { text-align: center; padding: 50px 20px; color: var(--text-muted); }
+</style>
+</head>
+<body>
+<div class="container" id="app">
+  <div class="header">
+    <div>
+      <h1>Stock Intel</h1>
+      <div class="subtitle" id="subtitle">Loading…</div>
+    </div>
+    <div class="btn-group">
+      <button class="btn" id="refreshBtn" onclick="runAnalysis()">↻ Analyze All</button>
+    </div>
+  </div>
+  <div class="ticker-bar" id="tickerBar"></div>
+  <div id="progressSection" style="display:none">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+    <div class="progress-text" id="progressText">Starting…</div>
+  </div>
+  <div class="cards" id="cards"></div>
+  <div class="footer">
+    <span id="tickerCount">0 tickers</span>
+    <span>Agentic analysis · multi-pass · Go</span>
+  </div>
+</div>
+<script>
+const API = '';
+let tickers = [];
+let results = {};
+let polling = null;
+
+async function fetchTickers() {
+  const res = await fetch(`${API}/api/tickers`);
+  const data = await res.json();
+  tickers = data.tickers || [];
+  renderTickerBar();
+}
+
+async function addTicker(t) {
+  const res = await fetch(`${API}/api/tickers`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ticker: t })
+  });
+  const data = await res.json();
+  tickers = data.tickers || [];
+  renderTickerBar();
+}
+
+async function removeTicker(t) {
+  const res = await fetch(`${API}/api/tickers/${t}`, { method: 'DELETE' });
+  const data = await res.json();
+  tickers = data.tickers || [];
+  delete results[t];
+  renderTickerBar();
+  renderCards();
+}
+
+async function fetchResults() {
+  const res = await fetch(`${API}/api/results`);
+  return res.json();
+}
+
+async function runAnalysis() {
+  document.getElementById('refreshBtn').disabled = true;
+  document.getElementById('refreshBtn').textContent = 'Analyzing…';
+  document.getElementById('progressSection').style.display = 'block';
+  await fetch(`${API}/api/analyze`, { method: 'POST' });
+  polling = setInterval(async () => {
+    const data = await fetchResults();
+    results = data.results || {};
+    renderCards();
+    const done = Object.keys(results).length;
+    const total = tickers.length;
+    const pct = total > 0 ? (done / total * 100) : 0;
+    document.getElementById('progressFill').style.width = `${pct}%`;
+    if (data.progress && data.progress.length > 0) {
+      const latest = data.progress[data.progress.length - 1];
+      document.getElementById('progressText').textContent = `[${latest.ticker}] ${latest.step} (${done}/${total})`;
+    }
+    if (!data.running) {
+      clearInterval(polling);
+      document.getElementById('refreshBtn').disabled = false;
+      document.getElementById('refreshBtn').textContent = '↻ Analyze All';
+      document.getElementById('subtitle').textContent = `Updated ${new Date().toLocaleTimeString()} · ${total} tickers`;
+      document.getElementById('progressSection').style.display = 'none';
+    }
+  }, 2000);
+}
+
+function renderTickerBar() {
+  const bar = document.getElementById('tickerBar');
+  bar.innerHTML = tickers.map(t => `
+    <span class="ticker-tag">${t}<button class="remove" onclick="removeTicker('${t}')" title="Remove ${t}">×</button></span>
+  `).join('') + `<input class="add-input" id="addInput" placeholder="+ ADD" onkeydown="handleAddKey(event)">`;
+  document.getElementById('tickerCount').textContent = `${tickers.length} ticker${tickers.length !== 1 ? 's' : ''}`;
+}
+
+function handleAddKey(e) {
+  if (e.key === 'Enter') {
+    const val = e.target.value.trim().toUpperCase();
+    if (val) { addTicker(val); e.target.value = ''; }
+  }
+}
+
+function badgeClass(s) { return `badge badge-${s || 'neutral'}`; }
+function badgeLabel(s) { return ({ bullish: 'Bullish', bearish: 'Bearish', neutral: 'Neutral', mixed: 'Mixed' })[s] || 'Neutral'; }
+
+function rsiColor(rsi) {
+  if (rsi == null) return 'var(--text-muted)';
+  if (rsi >= 70) return 'var(--red)';
+  if (rsi >= 60) return 'var(--yellow)';
+  if (rsi >= 40) return 'var(--gray)';
+  if (rsi >= 30) return 'var(--yellow)';
+  return 'var(--green)';
+}
+
+function rsiLabel(rsi) {
+  if (rsi == null) return '—';
+  if (rsi >= 80) return 'Extreme Overbought';
+  if (rsi >= 70) return 'Overbought';
+  if (rsi >= 60) return 'Elevated';
+  if (rsi >= 40) return 'Neutral';
+  if (rsi >= 30) return 'Depressed';
+  return 'Oversold';
+}
+
+function pctFrom(price, ma) {
+  if (price == null || ma == null) return '';
+  const p = ((price - ma) / ma * 100);
+  const color = p >= 0 ? 'var(--green)' : 'var(--red)';
+  return `<span class="tech-pct" style="color:${color}">${p >= 0 ? '+' : ''}${p.toFixed(1)}%</span>`;
+}
+
+function confClass(c) { return `confidence conf-${c || 'low'}`; }
+
+function renderCards() {
+  const container = document.getElementById('cards');
+  if (tickers.length === 0) {
+    container.innerHTML = '<div class="empty"><div style="font-size:28px;margin-bottom:10px">📊</div><p>No tickers. Add some above.</p></div>';
+    return;
+  }
+  container.innerHTML = tickers.map(t => {
+    const d = results[t];
+    if (!d) return `<div class="skeleton"><div class="skel-bar" style="width:60px;height:20px;margin-bottom:14px"></div><div class="skel-bar" style="width:90%;height:13px;margin-bottom:10px"></div><div class="skel-bar" style="width:75%;height:13px;margin-bottom:10px;animation-delay:0.15s"></div></div>`;
+    const tech = d.technicals || {};
+    const news = d.news || {};
+    const up = (tech.change ?? 0) >= 0;
+    const pc = up ? 'var(--green)' : 'var(--red)';
+    const log = d.agentLog || [];
+    return `
+    <div class="card">
+      <div class="card-header">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <span class="card-ticker">${d.ticker}</span>
+          <span class="card-name">${d.name || ''}</span>
+          <span class="${badgeClass(news.sentimentShortTerm)}">Near: ${badgeLabel(news.sentimentShortTerm)}</span>
+          <span class="${badgeClass(news.sentimentMedTerm)}">Med: ${badgeLabel(news.sentimentMedTerm)}</span>
+          <span class="${confClass(d.validation?.confidence)}">⬤ ${(d.validation?.confidence || 'unknown').toUpperCase()} confidence</span>
+        </div>
+        <div style="text-align:right">
+          <div class="card-price">${tech.price != null ? '$' + tech.price.toFixed(2) : '—'}</div>
+          <div class="card-change" style="color:${pc}">
+            ${tech.change != null ? `${up ? '+' : ''}${tech.change.toFixed(2)} (${up ? '+' : ''}${tech.changePct?.toFixed(2)}%)` : ''}
+          </div>
+        </div>
+      </div>
+      <div class="tech-panel">
+        <div>
+          <div style="font-family:var(--mono);font-size:22px;font-weight:700;color:${rsiColor(tech.rsi)}">
+            ${tech.rsi != null ? tech.rsi.toFixed(1) : '—'}
+          </div>
+          <div style="font-size:10px;font-weight:600;color:${rsiColor(tech.rsi)};font-family:var(--mono)">${rsiLabel(tech.rsi)}</div>
+          <div class="tech-label">RSI (14)</div>
+        </div>
+        <div>
+          <div class="tech-row">
+            <span style="font-size:10px;color:var(--text-muted);font-family:var(--mono)">50 MA</span>
+            <div style="display:flex;align-items:center;gap:6px">
+              <span class="tech-value">${tech.ma50 != null ? '$' + tech.ma50.toFixed(2) : '—'}</span>
+              ${pctFrom(tech.price, tech.ma50)}
+            </div>
+          </div>
+          <div class="tech-row">
+            <span style="font-size:10px;color:var(--text-muted);font-family:var(--mono)">200 MA</span>
+            <div style="display:flex;align-items:center;gap:6px">
+              <span class="tech-value">${tech.ma200 != null ? '$' + tech.ma200.toFixed(2) : '—'}</span>
+              ${pctFrom(tech.price, tech.ma200)}
+            </div>
+          </div>
+          <div class="tech-label">MOVING AVERAGES</div>
+        </div>
+      </div>
+      ${d.maSignal ? `<div class="ma-signal">${d.maSignal}</div>` : ''}
+      ${news.headline ? `<div class="headline">${news.headline}</div>` : ''}
+      ${news.bullets && news.bullets.length > 0 ? `
+        <div class="section-label">▸ KEY INSIGHTS</div>
+        ${news.bullets.map(b => `<div class="insight">${b}</div>`).join('')}
+      ` : ''}
+      ${(news.risk || news.catalyst) ? `
+        <div class="tag-row" style="margin-top:12px">
+          ${news.catalyst ? `<div class="tag-box tag-box-green"><div class="tag-box-label" style="color:var(--green)">CATALYST</div><div class="tag-box-text">${news.catalyst}</div></div>` : ''}
+          ${news.risk ? `<div class="tag-box tag-box-red"><div class="tag-box-label" style="color:var(--red)">KEY RISK</div><div class="tag-box-text">${news.risk}</div></div>` : ''}
+        </div>
+      ` : ''}
+      <div class="trace">
+        <div class="trace-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">
+          ▸ AGENT TRACE (${log.length} steps)
+        </div>
+        <div style="display:none;margin-top:6px">
+          ${log.map(s => `
+            <div class="trace-step">
+              <div class="trace-dot ${s.result}"></div>
+              <div>
+                <div>${s.step}: ${s.action}</div>
+                <div class="trace-detail">${s.detail}</div>
+              </div>
+              <div class="trace-duration">${s.durationMs > 0 ? (s.durationMs / 1000).toFixed(1) + 's' : '—'}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function init() {
+  await fetchTickers();
+  const data = await fetchResults();
+  results = data.results || {};
+  if (Object.keys(results).length > 0) {
+    document.getElementById('subtitle').textContent = `${Object.keys(results).length} results cached · click Analyze All to refresh`;
+  } else {
+    document.getElementById('subtitle').textContent = `${tickers.length} tickers configured · click Analyze All to start`;
+  }
+  renderCards();
+  if (data.running) {
+    document.getElementById('refreshBtn').disabled = true;
+    document.getElementById('refreshBtn').textContent = 'Analyzing…';
+    document.getElementById('progressSection').style.display = 'block';
+    polling = setInterval(async () => {
+      const d = await fetchResults();
+      results = d.results || {};
+      renderCards();
+      const done = Object.keys(results).length;
+      document.getElementById('progressFill').style.width = `${tickers.length > 0 ? done / tickers.length * 100 : 0}%`;
+      if (!d.running) {
+        clearInterval(polling);
+        document.getElementById('refreshBtn').disabled = false;
+        document.getElementById('refreshBtn').textContent = '↻ Analyze All';
+        document.getElementById('subtitle').textContent = `Updated ${new Date().toLocaleTimeString()}`;
+        document.getElementById('progressSection').style.display = 'none';
+      }
+    }, 2000);
+  }
+}
+init();
+</script>
+</body>
+</html>
