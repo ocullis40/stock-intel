@@ -5,30 +5,20 @@ import (
 	"time"
 
 	"github.com/oliver/stock-intel/internal/agent/steps"
+	"github.com/oliver/stock-intel/internal/types"
 )
 
-// Config holds agent runtime configuration.
-type Config struct {
-	Tickers     []string `json:"tickers"`
-	Model       string   `json:"model"`
-	Concurrency int      `json:"concurrency"`
-	Agent       struct {
-		MaxRetries         int  `json:"maxRetries"`
-		ValidateTechnicals bool `json:"validateTechnicals"`
-	} `json:"agent"`
-}
-
 // ProgressFunc is called when an agent step starts.
-type ProgressFunc func(update ProgressUpdate)
+type ProgressFunc func(update types.ProgressUpdate)
 
 // AnalyzeTicker runs the full agent pipeline for one ticker.
-func AnalyzeTicker(ticker string, cfg Config, onProgress ProgressFunc) TickerIntel {
-	var log []AgentStep
+func AnalyzeTicker(ticker string, cfg types.Config, onProgress ProgressFunc) types.TickerIntel {
+	var log []types.AgentStep
 	totalSteps := 5
 
 	report := func(step string, idx int) {
 		if onProgress != nil {
-			onProgress(ProgressUpdate{
+			onProgress(types.ProgressUpdate{
 				Ticker:     ticker,
 				Step:       step,
 				StepIndex:  idx,
@@ -51,11 +41,10 @@ func AnalyzeTicker(ticker string, cfg Config, onProgress ProgressFunc) TickerInt
 	if cfg.Agent.ValidateTechnicals && len(validation.Missing) > 0 {
 		for attempt := 0; attempt < cfg.Agent.MaxRetries; attempt++ {
 			report("Filling gaps", 3)
-			var step3 AgentStep
+			var step3 types.AgentStep
 			technicals, step3 = steps.FillGaps(ticker, technicals, validation, cfg.Model)
 			log = append(log, step3)
 
-			// Re-validate
 			validation, step2 = steps.Validate(ticker, technicals)
 			log = append(log, step2)
 
@@ -64,7 +53,7 @@ func AnalyzeTicker(ticker string, cfg Config, onProgress ProgressFunc) TickerInt
 			}
 		}
 	} else {
-		log = append(log, AgentStep{
+		log = append(log, types.AgentStep{
 			Step:       "fill_gaps",
 			Action:     "Skipped — no gaps or validation disabled",
 			Timestamp:  time.Now().UTC().Format(time.RFC3339),
@@ -84,8 +73,7 @@ func AnalyzeTicker(ticker string, cfg Config, onProgress ProgressFunc) TickerInt
 	maSignal, step5 := steps.Synthesize(ticker, technicals)
 	log = append(log, step5)
 
-	// Build default news if nil
-	newsData := NewsData{
+	newsData := types.NewsData{
 		Headline:           "Unable to fetch news",
 		Bullets:            []string{},
 		Risk:               "Unknown",
@@ -97,7 +85,7 @@ func AnalyzeTicker(ticker string, cfg Config, onProgress ProgressFunc) TickerInt
 		newsData = *news
 	}
 
-	return TickerIntel{
+	return types.TickerIntel{
 		Ticker:     ticker,
 		Name:       "",
 		Timestamp:  time.Now().UTC().Format(time.RFC3339),
@@ -110,8 +98,8 @@ func AnalyzeTicker(ticker string, cfg Config, onProgress ProgressFunc) TickerInt
 }
 
 // AnalyzeAll runs the agent pipeline for all tickers with controlled concurrency.
-func AnalyzeAll(cfg Config, onProgress ProgressFunc) map[string]TickerIntel {
-	results := make(map[string]TickerIntel)
+func AnalyzeAll(cfg types.Config, onProgress ProgressFunc) map[string]types.TickerIntel {
+	results := make(map[string]types.TickerIntel)
 	var mu sync.Mutex
 
 	sem := make(chan struct{}, cfg.Concurrency)
@@ -119,11 +107,11 @@ func AnalyzeAll(cfg Config, onProgress ProgressFunc) map[string]TickerIntel {
 
 	for _, ticker := range cfg.Tickers {
 		wg.Add(1)
-		sem <- struct{}{} // acquire
+		sem <- struct{}{}
 
 		go func(t string) {
 			defer wg.Done()
-			defer func() { <-sem }() // release
+			defer func() { <-sem }()
 
 			intel := AnalyzeTicker(t, cfg, onProgress)
 

@@ -9,12 +9,13 @@ import (
 
 	"github.com/oliver/stock-intel/internal/agent"
 	"github.com/oliver/stock-intel/internal/config"
+	"github.com/oliver/stock-intel/internal/types"
 )
 
 // Server holds the HTTP server state.
 type Server struct {
-	results         map[string]agent.TickerIntel
-	progress        []agent.ProgressUpdate
+	results         map[string]types.TickerIntel
+	progress        []types.ProgressUpdate
 	analysisRunning bool
 	mu              sync.RWMutex
 	dashboardDir    string
@@ -23,7 +24,7 @@ type Server struct {
 // New creates a new server.
 func New(dashboardDir string) *Server {
 	return &Server{
-		results:      make(map[string]agent.TickerIntel),
+		results:      make(map[string]types.TickerIntel),
 		dashboardDir: dashboardDir,
 	}
 }
@@ -32,7 +33,6 @@ func New(dashboardDir string) *Server {
 func (s *Server) Start(port int) error {
 	mux := http.NewServeMux()
 
-	// API routes
 	mux.HandleFunc("/api/tickers", s.handleTickers)
 	mux.HandleFunc("/api/tickers/", s.handleTickerDelete)
 	mux.HandleFunc("/api/results", s.handleResults)
@@ -40,7 +40,6 @@ func (s *Server) Start(port int) error {
 	mux.HandleFunc("/api/analyze/", s.handleAnalyzeSingle)
 	mux.HandleFunc("/api/progress", s.handleProgress)
 
-	// Dashboard static files
 	fs := http.FileServer(http.Dir(s.dashboardDir))
 	mux.Handle("/", fs)
 
@@ -76,8 +75,6 @@ func writeError(w http.ResponseWriter, code int, msg string) {
 	json.NewEncoder(w).Encode(map[string]string{"error": msg})
 }
 
-// GET /api/tickers — list tickers
-// POST /api/tickers — add a ticker
 func (s *Server) handleTickers(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
@@ -108,7 +105,6 @@ func (s *Server) handleTickers(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// DELETE /api/tickers/:ticker
 func (s *Server) handleTickerDelete(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
 		writeError(w, 405, "method not allowed")
@@ -128,7 +124,6 @@ func (s *Server) handleTickerDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Remove from cache
 	s.mu.Lock()
 	delete(s.results, ticker)
 	s.mu.Unlock()
@@ -136,7 +131,6 @@ func (s *Server) handleTickerDelete(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"tickers": cfg.Tickers})
 }
 
-// GET /api/results
 func (s *Server) handleResults(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeError(w, 405, "method not allowed")
@@ -153,7 +147,6 @@ func (s *Server) handleResults(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// POST /api/analyze — run full analysis in background
 func (s *Server) handleAnalyze(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeError(w, 405, "method not allowed")
@@ -181,11 +174,9 @@ func (s *Server) handleAnalyze(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, map[string]any{"status": "started", "tickers": cfg.Tickers})
 
-	// Run in background
 	go func() {
-		results := agent.AnalyzeAll(cfg, func(update agent.ProgressUpdate) {
+		results := agent.AnalyzeAll(cfg, func(update types.ProgressUpdate) {
 			s.mu.Lock()
-			// Update or append progress
 			found := false
 			for i, p := range s.progress {
 				if p.Ticker == update.Ticker {
@@ -207,7 +198,6 @@ func (s *Server) handleAnalyze(w http.ResponseWriter, r *http.Request) {
 	}()
 }
 
-// POST /api/analyze/:ticker — analyze single ticker (blocking)
 func (s *Server) handleAnalyzeSingle(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeError(w, 405, "method not allowed")
@@ -227,7 +217,7 @@ func (s *Server) handleAnalyzeSingle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	intel := agent.AnalyzeTicker(ticker, cfg, func(update agent.ProgressUpdate) {
+	intel := agent.AnalyzeTicker(ticker, cfg, func(update types.ProgressUpdate) {
 		fmt.Printf("  [%s] %s\n", update.Ticker, update.Step)
 	})
 
@@ -238,7 +228,6 @@ func (s *Server) handleAnalyzeSingle(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, intel)
 }
 
-// GET /api/progress
 func (s *Server) handleProgress(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeError(w, 405, "method not allowed")

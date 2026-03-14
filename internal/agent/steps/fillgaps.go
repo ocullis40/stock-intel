@@ -5,7 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/oliver/stock-intel/internal/agent"
+	"github.com/oliver/stock-intel/internal/client"
+	"github.com/oliver/stock-intel/internal/types"
 )
 
 type gapResult struct {
@@ -17,22 +18,17 @@ type gapResult struct {
 }
 
 // FillGaps runs a targeted search for specific missing values.
-// Only called when validation found gaps.
-func FillGaps(ticker string, current agent.TechnicalData, validation agent.ValidationResult, model string) (agent.TechnicalData, agent.AgentStep) {
+func FillGaps(ticker string, current types.TechnicalData, validation types.ValidationResult, model string) (types.TechnicalData, types.AgentStep) {
 	start := time.Now()
 
 	if len(validation.Missing) == 0 && len(validation.Suspicious) == 0 {
-		return current, agent.AgentStep{
-			Step:       "fill_gaps",
-			Action:     "Skipped — no gaps to fill",
-			Timestamp:  time.Now().UTC().Format(time.RFC3339),
-			DurationMs: 0,
-			Result:     "success",
-			Detail:     "No gaps detected",
+		return current, types.AgentStep{
+			Step: "fill_gaps", Action: "Skipped — no gaps to fill",
+			Timestamp: time.Now().UTC().Format(time.RFC3339), DurationMs: 0,
+			Result: "success", Detail: "No gaps detected",
 		}
 	}
 
-	// Build targeted prompt
 	var needs []string
 	for _, m := range validation.Missing {
 		switch m {
@@ -47,7 +43,6 @@ func FillGaps(ticker string, current agent.TechnicalData, validation agent.Valid
 		}
 	}
 
-	// Format existing values for the prompt
 	fmtVal := func(v *float64) string {
 		if v == nil {
 			return "null"
@@ -65,39 +60,28 @@ Return ONLY JSON with the values you find:
 {"price":%s,"rsi":%s,"ma50":%s,"ma200":%s,"source":"where you found it"}
 
 Keep any existing non-null values I provided. Only replace null values with what you find. Return ONLY the JSON.`,
-		ticker,
-		strings.Join(needs, "\n"),
-		fmtVal(current.Price),
-		fmtVal(current.RSI),
-		fmtVal(current.MA50),
-		fmtVal(current.MA200),
+		ticker, strings.Join(needs, "\n"),
+		fmtVal(current.Price), fmtVal(current.RSI), fmtVal(current.MA50), fmtVal(current.MA200),
 	)
 
-	raw, err := agent.SearchAndExtract(prompt, model)
+	raw, err := client.SearchAndExtract(prompt, model)
 	if err != nil {
-		return current, agent.AgentStep{
-			Step:       "fill_gaps",
-			Action:     fmt.Sprintf("Retry search for %s gaps: %s", ticker, strings.Join(validation.Missing, ", ")),
-			Timestamp:  time.Now().UTC().Format(time.RFC3339),
-			DurationMs: time.Since(start).Milliseconds(),
-			Result:     "failed",
-			Detail:     fmt.Sprintf("API error: %v", err),
+		return current, types.AgentStep{
+			Step: "fill_gaps", Action: fmt.Sprintf("Retry search for %s gaps: %s", ticker, strings.Join(validation.Missing, ", ")),
+			Timestamp: time.Now().UTC().Format(time.RFC3339), DurationMs: time.Since(start).Milliseconds(),
+			Result: "failed", Detail: fmt.Sprintf("API error: %v", err),
 		}
 	}
 
-	parsed, err := agent.ParseJSON[gapResult](raw)
+	parsed, err := client.ParseJSON[gapResult](raw)
 	if err != nil {
-		return current, agent.AgentStep{
-			Step:       "fill_gaps",
-			Action:     fmt.Sprintf("Retry search for %s gaps", ticker),
-			Timestamp:  time.Now().UTC().Format(time.RFC3339),
-			DurationMs: time.Since(start).Milliseconds(),
-			Result:     "failed",
-			Detail:     fmt.Sprintf("Parse error: %v", err),
+		return current, types.AgentStep{
+			Step: "fill_gaps", Action: fmt.Sprintf("Retry search for %s gaps", ticker),
+			Timestamp: time.Now().UTC().Format(time.RFC3339), DurationMs: time.Since(start).Milliseconds(),
+			Result: "failed", Detail: fmt.Sprintf("Parse error: %v", err),
 		}
 	}
 
-	// Merge: only fill in values that were null
 	merged := current
 	if merged.Price == nil && parsed.Price != nil {
 		merged.Price = parsed.Price
@@ -117,21 +101,13 @@ Keep any existing non-null values I provided. Only replace null values with what
 	for _, m := range validation.Missing {
 		switch m {
 		case "price":
-			if merged.Price != nil {
-				filled++
-			}
+			if merged.Price != nil { filled++ }
 		case "rsi":
-			if merged.RSI != nil {
-				filled++
-			}
+			if merged.RSI != nil { filled++ }
 		case "ma50":
-			if merged.MA50 != nil {
-				filled++
-			}
+			if merged.MA50 != nil { filled++ }
 		case "ma200":
-			if merged.MA200 != nil {
-				filled++
-			}
+			if merged.MA200 != nil { filled++ }
 		}
 	}
 
@@ -140,12 +116,9 @@ Keep any existing non-null values I provided. Only replace null values with what
 		result = "success"
 	}
 
-	return merged, agent.AgentStep{
-		Step:       "fill_gaps",
-		Action:     fmt.Sprintf("Retry search for %s gaps: %s", ticker, strings.Join(validation.Missing, ", ")),
-		Timestamp:  time.Now().UTC().Format(time.RFC3339),
-		DurationMs: time.Since(start).Milliseconds(),
-		Result:     result,
-		Detail:     fmt.Sprintf("Filled %d/%d gaps from %s", filled, len(validation.Missing), parsed.Source),
+	return merged, types.AgentStep{
+		Step: "fill_gaps", Action: fmt.Sprintf("Retry search for %s gaps: %s", ticker, strings.Join(validation.Missing, ", ")),
+		Timestamp: time.Now().UTC().Format(time.RFC3339), DurationMs: time.Since(start).Milliseconds(),
+		Result: result, Detail: fmt.Sprintf("Filled %d/%d gaps from %s", filled, len(validation.Missing), parsed.Source),
 	}
 }

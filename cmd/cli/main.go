@@ -8,6 +8,7 @@ import (
 
 	"github.com/oliver/stock-intel/internal/agent"
 	"github.com/oliver/stock-intel/internal/config"
+	"github.com/oliver/stock-intel/internal/types"
 )
 
 func main() {
@@ -25,7 +26,7 @@ func main() {
 	fmt.Printf("  Model:       %s\n", cfg.Model)
 	fmt.Printf("  Concurrency: %d\n\n", cfg.Concurrency)
 
-	results := agent.AnalyzeAll(cfg, func(update agent.ProgressUpdate) {
+	results := agent.AnalyzeAll(cfg, func(update types.ProgressUpdate) {
 		fmt.Printf("  [%s] Step %d/%d: %s\n", update.Ticker, update.StepIndex, update.TotalSteps, update.Step)
 	})
 
@@ -43,7 +44,6 @@ func main() {
 
 		fmt.Printf("%s [%s confidence]\n", ticker, confidence)
 
-		// Price
 		priceStr := "—"
 		if t.Price != nil {
 			priceStr = fmt.Sprintf("$%.2f", *t.Price)
@@ -58,7 +58,6 @@ func main() {
 		}
 		fmt.Printf("  Price: %s  Change: %s\n", priceStr, changeStr)
 
-		// Technicals
 		rsiStr := "—"
 		if t.RSI != nil {
 			rsiStr = fmt.Sprintf("%.1f", *t.RSI)
@@ -73,11 +72,7 @@ func main() {
 		}
 		fmt.Printf("  RSI(14): %s  50MA: %s  200MA: %s\n", rsiStr, ma50Str, ma200Str)
 		fmt.Printf("  Signal: %s\n", intel.MASignal)
-
-		// Sentiment
 		fmt.Printf("  Near-term: %s  |  Med-term: %s\n", n.SentimentShortTerm, n.SentimentMedTerm)
-
-		// News
 		fmt.Printf("  Headline: %s\n", n.Headline)
 		for _, b := range n.Bullets {
 			fmt.Printf("    • %s\n", b)
@@ -85,7 +80,6 @@ func main() {
 		fmt.Printf("  Risk: %s\n", n.Risk)
 		fmt.Printf("  Catalyst: %s\n", n.Catalyst)
 
-		// Agent stats
 		successCount := 0
 		failedCount := 0
 		for _, s := range intel.AgentLog {

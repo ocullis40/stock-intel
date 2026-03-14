@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/oliver/stock-intel/internal/agent"
+	"github.com/oliver/stock-intel/internal/client"
+	"github.com/oliver/stock-intel/internal/types"
 )
 
 // FetchNews searches for recent news, sentiment, risk, and catalysts.
-func FetchNews(ticker, model string) (*agent.NewsData, agent.AgentStep) {
+func FetchNews(ticker, model string) (*types.NewsData, types.AgentStep) {
 	start := time.Now()
 
 	prompt := fmt.Sprintf(`Research recent news and analyst sentiment for %s. Search for "%s stock news this week" and "%s analyst outlook".
@@ -32,27 +33,21 @@ Return ONLY valid JSON (no markdown, no explanation):
 
 Return ONLY the JSON.`, ticker, ticker, ticker)
 
-	raw, err := agent.SearchAndExtract(prompt, model)
+	raw, err := client.SearchAndExtract(prompt, model)
 	if err != nil {
-		return nil, agent.AgentStep{
-			Step:       "news",
-			Action:     fmt.Sprintf("Searched for %s news and sentiment", ticker),
-			Timestamp:  time.Now().UTC().Format(time.RFC3339),
-			DurationMs: time.Since(start).Milliseconds(),
-			Result:     "failed",
-			Detail:     fmt.Sprintf("API error: %v", err),
+		return nil, types.AgentStep{
+			Step: "news", Action: fmt.Sprintf("Searched for %s news and sentiment", ticker),
+			Timestamp: time.Now().UTC().Format(time.RFC3339), DurationMs: time.Since(start).Milliseconds(),
+			Result: "failed", Detail: fmt.Sprintf("API error: %v", err),
 		}
 	}
 
-	parsed, err := agent.ParseJSON[agent.NewsData](raw)
+	parsed, err := client.ParseJSON[types.NewsData](raw)
 	if err != nil {
-		return nil, agent.AgentStep{
-			Step:       "news",
-			Action:     fmt.Sprintf("Searched for %s news and sentiment", ticker),
-			Timestamp:  time.Now().UTC().Format(time.RFC3339),
-			DurationMs: time.Since(start).Milliseconds(),
-			Result:     "failed",
-			Detail:     fmt.Sprintf("Parse error: %v", err),
+		return nil, types.AgentStep{
+			Step: "news", Action: fmt.Sprintf("Searched for %s news and sentiment", ticker),
+			Timestamp: time.Now().UTC().Format(time.RFC3339), DurationMs: time.Since(start).Milliseconds(),
+			Result: "failed", Detail: fmt.Sprintf("Parse error: %v", err),
 		}
 	}
 
@@ -61,12 +56,9 @@ Return ONLY the JSON.`, ticker, ticker, ticker)
 		headline = headline[:80] + "..."
 	}
 
-	return parsed, agent.AgentStep{
-		Step:       "news",
-		Action:     fmt.Sprintf("Searched for %s news and sentiment", ticker),
-		Timestamp:  time.Now().UTC().Format(time.RFC3339),
-		DurationMs: time.Since(start).Milliseconds(),
-		Result:     "success",
-		Detail:     fmt.Sprintf("Headline: %s", headline),
+	return parsed, types.AgentStep{
+		Step: "news", Action: fmt.Sprintf("Searched for %s news and sentiment", ticker),
+		Timestamp: time.Now().UTC().Format(time.RFC3339), DurationMs: time.Since(start).Milliseconds(),
+		Result: "success", Detail: fmt.Sprintf("Headline: %s", headline),
 	}
 }

@@ -5,12 +5,11 @@ import (
 	"math"
 	"time"
 
-	"github.com/oliver/stock-intel/internal/agent"
+	"github.com/oliver/stock-intel/internal/types"
 )
 
 // Validate inspects technical data for gaps and suspicious values.
-// Pure logic — no API calls.
-func Validate(ticker string, data agent.TechnicalData) (agent.ValidationResult, agent.AgentStep) {
+func Validate(ticker string, data types.TechnicalData) (types.ValidationResult, types.AgentStep) {
 	start := time.Now()
 	var missing, suspicious []string
 
@@ -27,7 +26,6 @@ func Validate(ticker string, data agent.TechnicalData) (agent.ValidationResult, 
 		missing = append(missing, "ma200")
 	}
 
-	// Sanity checks
 	if data.RSI != nil && (*data.RSI < 0 || *data.RSI > 100) {
 		suspicious = append(suspicious, fmt.Sprintf("RSI value %.1f is out of range [0-100]", *data.RSI))
 	}
@@ -64,16 +62,11 @@ func Validate(ticker string, data agent.TechnicalData) (agent.ValidationResult, 
 		detail = fmt.Sprintf("Missing: %v, Suspicious: %v", missing, suspicious)
 	}
 
-	return agent.ValidationResult{
-			Missing:    missing,
-			Suspicious: suspicious,
-			Confidence: confidence,
-		}, agent.AgentStep{
-			Step:       "validate",
-			Action:     fmt.Sprintf("Validated %s technicals", ticker),
-			Timestamp:  time.Now().UTC().Format(time.RFC3339),
-			DurationMs: time.Since(start).Milliseconds(),
-			Result:     result,
-			Detail:     detail,
+	return types.ValidationResult{
+			Missing: missing, Suspicious: suspicious, Confidence: confidence,
+		}, types.AgentStep{
+			Step: "validate", Action: fmt.Sprintf("Validated %s technicals", ticker),
+			Timestamp: time.Now().UTC().Format(time.RFC3339), DurationMs: time.Since(start).Milliseconds(),
+			Result: result, Detail: detail,
 		}
 }

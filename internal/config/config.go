@@ -7,12 +7,12 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/oliver/stock-intel/internal/agent"
+	"github.com/oliver/stock-intel/internal/types"
 )
 
 var (
-	mu       sync.RWMutex
-	cfgPath  string
+	mu      sync.RWMutex
+	cfgPath string
 )
 
 // Init sets the config file path. Call once at startup.
@@ -21,21 +21,20 @@ func Init(path string) {
 }
 
 // Load reads config from disk.
-func Load() (agent.Config, error) {
+func Load() (types.Config, error) {
 	mu.RLock()
 	defer mu.RUnlock()
 
 	data, err := os.ReadFile(cfgPath)
 	if err != nil {
-		return agent.Config{}, err
+		return types.Config{}, err
 	}
 
-	var cfg agent.Config
+	var cfg types.Config
 	if err := json.Unmarshal(data, &cfg); err != nil {
-		return agent.Config{}, err
+		return types.Config{}, err
 	}
 
-	// Defaults
 	if cfg.Model == "" {
 		cfg.Model = "claude-sonnet-4-20250514"
 	}
@@ -50,7 +49,7 @@ func Load() (agent.Config, error) {
 }
 
 // Save writes config to disk.
-func Save(cfg agent.Config) error {
+func Save(cfg types.Config) error {
 	mu.Lock()
 	defer mu.Unlock()
 
@@ -62,7 +61,7 @@ func Save(cfg agent.Config) error {
 }
 
 // AddTicker adds a ticker if not already present.
-func AddTicker(ticker string) (agent.Config, error) {
+func AddTicker(ticker string) (types.Config, error) {
 	cfg, err := Load()
 	if err != nil {
 		return cfg, err
@@ -75,7 +74,7 @@ func AddTicker(ticker string) (agent.Config, error) {
 
 	for _, existing := range cfg.Tickers {
 		if existing == t {
-			return cfg, nil // already present
+			return cfg, nil
 		}
 	}
 
@@ -84,7 +83,7 @@ func AddTicker(ticker string) (agent.Config, error) {
 }
 
 // RemoveTicker removes a ticker.
-func RemoveTicker(ticker string) (agent.Config, error) {
+func RemoveTicker(ticker string) (types.Config, error) {
 	cfg, err := Load()
 	if err != nil {
 		return cfg, err

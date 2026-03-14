@@ -1,4 +1,4 @@
-package agent
+package types
 
 // TechnicalData holds price and indicator values from search.
 type TechnicalData struct {
@@ -20,12 +20,12 @@ type ValidationResult struct {
 
 // NewsData holds qualitative analysis.
 type NewsData struct {
-	Headline           string `json:"headline"`
+	Headline           string   `json:"headline"`
 	Bullets            []string `json:"bullets"`
-	Risk               string `json:"risk"`
-	Catalyst           string `json:"catalyst"`
-	SentimentShortTerm string `json:"sentimentShortTerm"`
-	SentimentMedTerm   string `json:"sentimentMedTerm"`
+	Risk               string   `json:"risk"`
+	Catalyst           string   `json:"catalyst"`
+	SentimentShortTerm string   `json:"sentimentShortTerm"`
+	SentimentMedTerm   string   `json:"sentimentMedTerm"`
 }
 
 // AgentStep records a single step in the agent's execution trace.
@@ -56,4 +56,15 @@ type ProgressUpdate struct {
 	Step       string `json:"step"`
 	StepIndex  int    `json:"stepIndex"`
 	TotalSteps int    `json:"totalSteps"`
+}
+
+// Config holds agent runtime configuration.
+type Config struct {
+	Tickers     []string `json:"tickers"`
+	Model       string   `json:"model"`
+	Concurrency int      `json:"concurrency"`
+	Agent       struct {
+		MaxRetries         int  `json:"maxRetries"`
+		ValidateTechnicals bool `json:"validateTechnicals"`
+	} `json:"agent"`
 }

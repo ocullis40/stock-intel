@@ -4,16 +4,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/oliver/stock-intel/internal/agent"
+	"github.com/oliver/stock-intel/internal/types"
 )
 
 // Synthesize computes the MA signal from technical data.
-// Pure logic — no API calls needed.
-func Synthesize(ticker string, tech agent.TechnicalData) (string, agent.AgentStep) {
+func Synthesize(ticker string, tech types.TechnicalData) (string, types.AgentStep) {
 	start := time.Now()
 
 	if tech.Price == nil || tech.MA50 == nil || tech.MA200 == nil {
-		// Partial signal
 		var parts []string
 		if tech.Price != nil {
 			parts = append(parts, fmt.Sprintf("Price: $%.2f", *tech.Price))
@@ -33,13 +31,10 @@ func Synthesize(ticker string, tech agent.TechnicalData) (string, agent.AgentSte
 			signal = fmt.Sprintf("Incomplete data — %s. Cannot compute full MA signal.", joinComma(parts))
 		}
 
-		return signal, agent.AgentStep{
-			Step:       "synthesize",
-			Action:     fmt.Sprintf("Attempted MA signal for %s", ticker),
-			Timestamp:  time.Now().UTC().Format(time.RFC3339),
-			DurationMs: time.Since(start).Milliseconds(),
-			Result:     "partial",
-			Detail:     "Missing MA values — computed partial signal",
+		return signal, types.AgentStep{
+			Step: "synthesize", Action: fmt.Sprintf("Attempted MA signal for %s", ticker),
+			Timestamp: time.Now().UTC().Format(time.RFC3339), DurationMs: time.Since(start).Milliseconds(),
+			Result: "partial", Detail: "Missing MA values — computed partial signal",
 		}
 	}
 
@@ -79,13 +74,10 @@ func Synthesize(ticker string, tech agent.TechnicalData) (string, agent.AgentSte
 		signal = fmt.Sprintf("Price below both MAs.%s", rsiNote)
 	}
 
-	return signal, agent.AgentStep{
-		Step:       "synthesize",
-		Action:     fmt.Sprintf("Computed MA signal for %s", ticker),
-		Timestamp:  time.Now().UTC().Format(time.RFC3339),
-		DurationMs: time.Since(start).Milliseconds(),
-		Result:     "success",
-		Detail:     signal,
+	return signal, types.AgentStep{
+		Step: "synthesize", Action: fmt.Sprintf("Computed MA signal for %s", ticker),
+		Timestamp: time.Now().UTC().Format(time.RFC3339), DurationMs: time.Since(start).Milliseconds(),
+		Result: "success", Detail: signal,
 	}
 }
 

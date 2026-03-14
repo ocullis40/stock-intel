@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/oliver/stock-intel/internal/agent"
+	"github.com/oliver/stock-intel/internal/client"
+	"github.com/oliver/stock-intel/internal/types"
 )
 
-// technicalsRaw is the JSON shape we ask Claude for.
 type technicalsRaw struct {
 	Price     *float64 `json:"price"`
 	Change    *float64 `json:"change"`
@@ -19,9 +19,9 @@ type technicalsRaw struct {
 }
 
 // FetchTechnicals searches for current price and technical indicators.
-func FetchTechnicals(ticker, model string) (agent.TechnicalData, agent.AgentStep) {
+func FetchTechnicals(ticker, model string) (types.TechnicalData, types.AgentStep) {
 	start := time.Now()
-	empty := agent.TechnicalData{Source: "error"}
+	empty := types.TechnicalData{Source: "error"}
 
 	prompt := fmt.Sprintf(`Search for current technical indicators for stock/ETF "%s".
 I need these SPECIFIC values:
@@ -37,38 +37,27 @@ Return ONLY valid JSON (no markdown, no explanation):
 
 Use null for any value you genuinely cannot find. Return ONLY the JSON.`, ticker, ticker, ticker)
 
-	raw, err := agent.SearchAndExtract(prompt, model)
+	raw, err := client.SearchAndExtract(prompt, model)
 	if err != nil {
-		return empty, agent.AgentStep{
-			Step:       "technicals",
-			Action:     fmt.Sprintf("Searched for %s technicals", ticker),
-			Timestamp:  time.Now().UTC().Format(time.RFC3339),
-			DurationMs: time.Since(start).Milliseconds(),
-			Result:     "failed",
-			Detail:     fmt.Sprintf("API error: %v", err),
+		return empty, types.AgentStep{
+			Step: "technicals", Action: fmt.Sprintf("Searched for %s technicals", ticker),
+			Timestamp: time.Now().UTC().Format(time.RFC3339), DurationMs: time.Since(start).Milliseconds(),
+			Result: "failed", Detail: fmt.Sprintf("API error: %v", err),
 		}
 	}
 
-	parsed, err := agent.ParseJSON[technicalsRaw](raw)
+	parsed, err := client.ParseJSON[technicalsRaw](raw)
 	if err != nil {
-		return empty, agent.AgentStep{
-			Step:       "technicals",
-			Action:     fmt.Sprintf("Searched for %s technicals", ticker),
-			Timestamp:  time.Now().UTC().Format(time.RFC3339),
-			DurationMs: time.Since(start).Milliseconds(),
-			Result:     "failed",
-			Detail:     fmt.Sprintf("Parse error: %v", err),
+		return empty, types.AgentStep{
+			Step: "technicals", Action: fmt.Sprintf("Searched for %s technicals", ticker),
+			Timestamp: time.Now().UTC().Format(time.RFC3339), DurationMs: time.Since(start).Milliseconds(),
+			Result: "failed", Detail: fmt.Sprintf("Parse error: %v", err),
 		}
 	}
 
-	data := agent.TechnicalData{
-		Price:     parsed.Price,
-		Change:    parsed.Change,
-		ChangePct: parsed.ChangePct,
-		RSI:       parsed.RSI,
-		MA50:      parsed.MA50,
-		MA200:     parsed.MA200,
-		Source:    parsed.Source,
+	data := types.TechnicalData{
+		Price: parsed.Price, Change: parsed.Change, ChangePct: parsed.ChangePct,
+		RSI: parsed.RSI, MA50: parsed.MA50, MA200: parsed.MA200, Source: parsed.Source,
 	}
 
 	nullCount := countNils(parsed.Price, parsed.RSI, parsed.MA50, parsed.MA200)
@@ -79,13 +68,10 @@ Use null for any value you genuinely cannot find. Return ONLY the JSON.`, ticker
 		detail = fmt.Sprintf("Missing %d value(s), source: %s", nullCount, parsed.Source)
 	}
 
-	return data, agent.AgentStep{
-		Step:       "technicals",
-		Action:     fmt.Sprintf("Searched for %s technicals", ticker),
-		Timestamp:  time.Now().UTC().Format(time.RFC3339),
-		DurationMs: time.Since(start).Milliseconds(),
-		Result:     result,
-		Detail:     detail,
+	return data, types.AgentStep{
+		Step: "technicals", Action: fmt.Sprintf("Searched for %s technicals", ticker),
+		Timestamp: time.Now().UTC().Format(time.RFC3339), DurationMs: time.Since(start).Milliseconds(),
+		Result: result, Detail: detail,
 	}
 }
 

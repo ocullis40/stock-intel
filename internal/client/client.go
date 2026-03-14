@@ -1,4 +1,4 @@
-package agent
+package client
 
 import (
 	"bytes"
@@ -12,7 +12,6 @@ import (
 
 const anthropicAPI = "https://api.anthropic.com/v1/messages"
 
-// apiRequest is the request body for the Messages API.
 type apiRequest struct {
 	Model     string       `json:"model"`
 	MaxTokens int          `json:"max_tokens"`
@@ -30,7 +29,6 @@ type apiMessage struct {
 	Content string `json:"content"`
 }
 
-// apiResponse is the response from the Messages API.
 type apiResponse struct {
 	Content []apiContentBlock `json:"content"`
 	Error   *apiError         `json:"error,omitempty"`
