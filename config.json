@@ -1,9 +1,8 @@
 {
-  "tickers": ["QQQ", "USO", "IREN", "SNDK", "HOOD"],
+  "tickers": ["QQQ", "USO", "HOOD", "AAPL", "MSFT"],
   "model": "claude-sonnet-4-20250514",
-  "concurrency": 2,
-  "agent": {
-    "maxRetries": 2,
-    "validateTechnicals": true
-  }
+  "concurrency": 1,
+  "maxTokensPerRun": 500000,
+  "maxTickers": 10,
+  "requestDelayMs": 5000
 }

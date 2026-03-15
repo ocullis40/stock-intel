@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"os"
 	"strings"
+
+	"github.com/oliver/stock-intel/internal/types"
 )
 
 const anthropicAPI = "https://api.anthropic.com/v1/messages"
@@ -29,8 +31,14 @@ type apiMessage struct {
 	Content string `json:"content"`
 }
 
+type apiUsage struct {
+	InputTokens  int `json:"input_tokens"`
+	OutputTokens int `json:"output_tokens"`
+}
+
 type apiResponse struct {
 	Content []apiContentBlock `json:"content"`
+	Usage   apiUsage          `json:"usage"`
 	Error   *apiError         `json:"error,omitempty"`
 }
 
@@ -45,11 +53,11 @@ type apiError struct {
 }
 
 // SearchAndExtract calls Claude with web_search enabled and returns
-// the concatenated text blocks from the response.
-func SearchAndExtract(prompt string, model string) (string, error) {
+// the concatenated text blocks from the response along with token usage.
+func SearchAndExtract(prompt string, model string) (string, types.Usage, error) {
 	apiKey := os.Getenv("ANTHROPIC_API_KEY")
 	if apiKey == "" {
-		return "", fmt.Errorf("ANTHROPIC_API_KEY not set")
+		return "", types.Usage{}, fmt.Errorf("ANTHROPIC_API_KEY not set")
 	}
 
 	reqBody := apiRequest{
@@ -65,12 +73,12 @@ func SearchAndExtract(prompt string, model string) (string, error) {
 
 	bodyBytes, err := json.Marshal(reqBody)
 	if err != nil {
-		return "", fmt.Errorf("marshal request: %w", err)
+		return "", types.Usage{}, fmt.Errorf("marshal request: %w", err)
 	}
 
 	req, err := http.NewRequest("POST", anthropicAPI, bytes.NewReader(bodyBytes))
 	if err != nil {
-		return "", fmt.Errorf("create request: %w", err)
+		return "", types.Usage{}, fmt.Errorf("create request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -79,26 +87,31 @@ func SearchAndExtract(prompt string, model string) (string, error) {
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("http request: %w", err)
+		return "", types.Usage{}, fmt.Errorf("http request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	respBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("read response: %w", err)
+		return "", types.Usage{}, fmt.Errorf("read response: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("API returned %d: %s", resp.StatusCode, string(respBytes))
+		return "", types.Usage{}, fmt.Errorf("API returned %d: %s", resp.StatusCode, string(respBytes))
 	}
 
 	var apiResp apiResponse
 	if err := json.Unmarshal(respBytes, &apiResp); err != nil {
-		return "", fmt.Errorf("unmarshal response: %w", err)
+		return "", types.Usage{}, fmt.Errorf("unmarshal response: %w", err)
 	}
 
 	if apiResp.Error != nil {
-		return "", fmt.Errorf("API error: %s", apiResp.Error.Message)
+		return "", types.Usage{}, fmt.Errorf("API error: %s", apiResp.Error.Message)
+	}
+
+	u := types.Usage{
+		InputTokens:  apiResp.Usage.InputTokens,
+		OutputTokens: apiResp.Usage.OutputTokens,
 	}
 
 	var texts []string
@@ -108,7 +121,7 @@ func SearchAndExtract(prompt string, model string) (string, error) {
 		}
 	}
 
-	return strings.Join(texts, ""), nil
+	return strings.Join(texts, ""), u, nil
 }
 
 // ParseJSON strips markdown fences and parses JSON from a Claude response.

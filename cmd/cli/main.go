@@ -24,10 +24,24 @@ func main() {
 	fmt.Printf("\nStock Intel — Analyzing %d tickers\n\n", len(cfg.Tickers))
 	fmt.Printf("  Tickers:     %s\n", strings.Join(cfg.Tickers, ", "))
 	fmt.Printf("  Model:       %s\n", cfg.Model)
-	fmt.Printf("  Concurrency: %d\n\n", cfg.Concurrency)
+	fmt.Printf("  Concurrency: %d\n", cfg.Concurrency)
+	budgetStr := "unlimited"
+	if cfg.MaxTokensPerRun > 0 {
+		budgetStr = fmt.Sprintf("%d tokens", cfg.MaxTokensPerRun)
+	}
+	fmt.Printf("  Token budget: %s\n", budgetStr)
+	fmt.Printf("  Max tickers: %d\n", cfg.MaxTickers)
+	if cfg.RequestDelayMs > 0 {
+		fmt.Printf("  Request delay: %dms\n", cfg.RequestDelayMs)
+	}
+	fmt.Println()
 
-	results := agent.AnalyzeAll(cfg, func(update types.ProgressUpdate) {
-		fmt.Printf("  [%s] Step %d/%d: %s\n", update.Ticker, update.StepIndex, update.TotalSteps, update.Step)
+	results, usageSummary := agent.AnalyzeAll(cfg, func(update types.ProgressUpdate) {
+		if update.TotalSteps > 0 {
+			fmt.Printf("  [%s] Step %d/%d: %s\n", update.Ticker, update.StepIndex, update.TotalSteps, update.Step)
+		} else {
+			fmt.Printf("  [%s] %s\n", update.Ticker, update.Step)
+		}
 	})
 
 	fmt.Printf("\n%s\n\n", strings.Repeat("─", 60))
@@ -92,6 +106,18 @@ func main() {
 		}
 		fmt.Printf("  Agent steps: %d (%d success, %d failed)\n\n", len(intel.AgentLog), successCount, failedCount)
 	}
+
+	fmt.Printf("%s\n", strings.Repeat("─", 60))
+	fmt.Printf("  Usage Summary\n")
+	fmt.Printf("  API calls:      %d\n", usageSummary.APICalls)
+	fmt.Printf("  Input tokens:   %d\n", usageSummary.TotalInputTokens)
+	fmt.Printf("  Output tokens:  %d\n", usageSummary.TotalOutputTokens)
+	fmt.Printf("  Total tokens:   %d\n", usageSummary.TotalTokens)
+	fmt.Printf("  Est. cost:      $%.4f\n", usageSummary.EstimatedCost)
+	if usageSummary.BudgetUsedPct > 0 {
+		fmt.Printf("  Budget used:    %.1f%%\n", usageSummary.BudgetUsedPct)
+	}
+	fmt.Println()
 }
 
 func findRoot() string {

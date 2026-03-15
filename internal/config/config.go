@@ -41,8 +41,11 @@ func Load() (types.Config, error) {
 	if cfg.Concurrency == 0 {
 		cfg.Concurrency = 2
 	}
-	if cfg.Agent.MaxRetries == 0 {
-		cfg.Agent.MaxRetries = 2
+if cfg.MaxTokensPerRun == 0 {
+		cfg.MaxTokensPerRun = 500_000
+	}
+	if cfg.MaxTickers == 0 {
+		cfg.MaxTickers = 10
 	}
 
 	return cfg, nil

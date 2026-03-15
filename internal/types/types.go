@@ -58,13 +58,29 @@ type ProgressUpdate struct {
 	TotalSteps int    `json:"totalSteps"`
 }
 
+// Usage holds token counts from a single API response.
+type Usage struct {
+	InputTokens  int `json:"input_tokens"`
+	OutputTokens int `json:"output_tokens"`
+}
+
+// UsageSummary holds aggregate usage stats for a run.
+type UsageSummary struct {
+	TotalInputTokens  int     `json:"totalInputTokens"`
+	TotalOutputTokens int     `json:"totalOutputTokens"`
+	TotalTokens       int     `json:"totalTokens"`
+	APICalls          int     `json:"apiCalls"`
+	EstimatedCost     float64 `json:"estimatedCost"`
+	BudgetUsedPct     float64 `json:"budgetUsedPct"`
+}
+
 // Config holds agent runtime configuration.
 type Config struct {
-	Tickers     []string `json:"tickers"`
-	Model       string   `json:"model"`
-	Concurrency int      `json:"concurrency"`
-	Agent       struct {
-		MaxRetries         int  `json:"maxRetries"`
-		ValidateTechnicals bool `json:"validateTechnicals"`
-	} `json:"agent"`
+	Tickers        []string `json:"tickers"`
+	Model          string   `json:"model"`
+	Concurrency    int      `json:"concurrency"`
+	MaxTokensPerRun int     `json:"maxTokensPerRun,omitempty"`
+	MaxTickers     int      `json:"maxTickers,omitempty"`
+	RequestDelayMs int      `json:"requestDelayMs,omitempty"`
+	Agent struct{} `json:"agent,omitempty"`
 }

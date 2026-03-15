@@ -10,15 +10,17 @@ import (
 	"github.com/oliver/stock-intel/internal/agent"
 	"github.com/oliver/stock-intel/internal/config"
 	"github.com/oliver/stock-intel/internal/types"
+	"github.com/oliver/stock-intel/internal/usage"
 )
 
 // Server holds the HTTP server state.
 type Server struct {
-	results         map[string]types.TickerIntel
-	progress        []types.ProgressUpdate
-	analysisRunning bool
-	mu              sync.RWMutex
-	dashboardDir    string
+	results          map[string]types.TickerIntel
+	progress         []types.ProgressUpdate
+	analysisRunning  bool
+	lastUsageSummary *types.UsageSummary
+	mu               sync.RWMutex
+	dashboardDir     string
 }
 
 // New creates a new server.
@@ -144,6 +146,7 @@ func (s *Server) handleResults(w http.ResponseWriter, r *http.Request) {
 		"results":  s.results,
 		"running":  s.analysisRunning,
 		"progress": s.progress,
+		"usage":    s.lastUsageSummary,
 	})
 }
 
@@ -175,7 +178,7 @@ func (s *Server) handleAnalyze(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"status": "started", "tickers": cfg.Tickers})
 
 	go func() {
-		results := agent.AnalyzeAll(cfg, func(update types.ProgressUpdate) {
+		results, usageSummary := agent.AnalyzeAll(cfg, func(update types.ProgressUpdate) {
 			s.mu.Lock()
 			found := false
 			for i, p := range s.progress {
@@ -193,6 +196,7 @@ func (s *Server) handleAnalyze(w http.ResponseWriter, r *http.Request) {
 
 		s.mu.Lock()
 		s.results = results
+		s.lastUsageSummary = &usageSummary
 		s.analysisRunning = false
 		s.mu.Unlock()
 	}()
@@ -217,15 +221,22 @@ func (s *Server) handleAnalyzeSingle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tracker := usage.New(cfg.MaxTokensPerRun, cfg.RequestDelayMs)
 	intel := agent.AnalyzeTicker(ticker, cfg, func(update types.ProgressUpdate) {
 		fmt.Printf("  [%s] %s\n", update.Ticker, update.Step)
-	})
+	}, tracker)
+
+	summary := tracker.Summary()
 
 	s.mu.Lock()
 	s.results[ticker] = intel
+	s.lastUsageSummary = &summary
 	s.mu.Unlock()
 
-	writeJSON(w, intel)
+	writeJSON(w, map[string]any{
+		"result": intel,
+		"usage":  summary,
+	})
 }
 
 func (s *Server) handleProgress(w http.ResponseWriter, r *http.Request) {
