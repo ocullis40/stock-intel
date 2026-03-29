@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/oliver/stock-intel/internal/config"
 	"github.com/oliver/stock-intel/internal/server"
@@ -14,6 +16,7 @@ func main() {
 	// Find project root (where config.json lives)
 	root := findRoot()
 
+	loadEnv(filepath.Join(root, ".env"))
 	config.Init(filepath.Join(root, "config.json"))
 
 	port := 3847
@@ -29,6 +32,32 @@ func main() {
 	if err := srv.Start(port); err != nil {
 		fmt.Fprintf(os.Stderr, "Server error: %v\n", err)
 		os.Exit(1)
+	}
+}
+
+// loadEnv reads a .env file and sets any variables not already in the environment.
+func loadEnv(path string) {
+	f, err := os.Open(path)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		key, val, ok := strings.Cut(line, "=")
+		if !ok {
+			continue
+		}
+		key = strings.TrimSpace(key)
+		val = strings.TrimSpace(val)
+		if _, exists := os.LookupEnv(key); !exists && val != "" {
+			os.Setenv(key, val)
+		}
 	}
 }
 

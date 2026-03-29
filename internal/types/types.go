@@ -20,6 +20,7 @@ type ValidationResult struct {
 
 // NewsData holds qualitative analysis.
 type NewsData struct {
+	BreakingNews       string   `json:"breakingNews,omitempty"`
 	Headline           string   `json:"headline"`
 	Bullets            []string `json:"bullets"`
 	Risk               string   `json:"risk"`
@@ -38,6 +39,12 @@ type AgentStep struct {
 	Detail     string `json:"detail"`
 }
 
+// Source is a cited URL from web search results.
+type Source struct {
+	Title string `json:"title"`
+	URL   string `json:"url"`
+}
+
 // TickerIntel is the final output for one ticker.
 type TickerIntel struct {
 	Ticker     string           `json:"ticker"`
@@ -48,6 +55,7 @@ type TickerIntel struct {
 	MASignal   string           `json:"maSignal"`
 	Validation ValidationResult `json:"validation"`
 	AgentLog   []AgentStep      `json:"agentLog"`
+	Sources    []Source         `json:"sources"`
 }
 
 // ProgressUpdate is sent during analysis.

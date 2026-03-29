@@ -16,9 +16,9 @@ import (
 // Server holds the HTTP server state.
 type Server struct {
 	results          map[string]types.TickerIntel
-	progress         []types.ProgressUpdate
-	analysisRunning  bool
 	lastUsageSummary *types.UsageSummary
+	tickerProgress   map[string]types.ProgressUpdate // per-ticker progress for single analyses
+	tickerRunning    map[string]bool                 // which tickers are currently being analyzed individually
 	mu               sync.RWMutex
 	dashboardDir     string
 }
@@ -26,8 +26,10 @@ type Server struct {
 // New creates a new server.
 func New(dashboardDir string) *Server {
 	return &Server{
-		results:      make(map[string]types.TickerIntel),
-		dashboardDir: dashboardDir,
+		results:        make(map[string]types.TickerIntel),
+		tickerProgress: make(map[string]types.ProgressUpdate),
+		tickerRunning:  make(map[string]bool),
+		dashboardDir:   dashboardDir,
 	}
 }
 
@@ -38,7 +40,6 @@ func (s *Server) Start(port int) error {
 	mux.HandleFunc("/api/tickers", s.handleTickers)
 	mux.HandleFunc("/api/tickers/", s.handleTickerDelete)
 	mux.HandleFunc("/api/results", s.handleResults)
-	mux.HandleFunc("/api/analyze", s.handleAnalyze)
 	mux.HandleFunc("/api/analyze/", s.handleAnalyzeSingle)
 	mux.HandleFunc("/api/progress", s.handleProgress)
 
@@ -143,63 +144,9 @@ func (s *Server) handleResults(w http.ResponseWriter, r *http.Request) {
 	defer s.mu.RUnlock()
 
 	writeJSON(w, map[string]any{
-		"results":  s.results,
-		"running":  s.analysisRunning,
-		"progress": s.progress,
-		"usage":    s.lastUsageSummary,
+		"results": s.results,
+		"usage":   s.lastUsageSummary,
 	})
-}
-
-func (s *Server) handleAnalyze(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		writeError(w, 405, "method not allowed")
-		return
-	}
-
-	s.mu.RLock()
-	if s.analysisRunning {
-		s.mu.RUnlock()
-		writeError(w, 409, "analysis already in progress")
-		return
-	}
-	s.mu.RUnlock()
-
-	cfg, err := config.Load()
-	if err != nil {
-		writeError(w, 500, err.Error())
-		return
-	}
-
-	s.mu.Lock()
-	s.analysisRunning = true
-	s.progress = nil
-	s.mu.Unlock()
-
-	writeJSON(w, map[string]any{"status": "started", "tickers": cfg.Tickers})
-
-	go func() {
-		results, usageSummary := agent.AnalyzeAll(cfg, func(update types.ProgressUpdate) {
-			s.mu.Lock()
-			found := false
-			for i, p := range s.progress {
-				if p.Ticker == update.Ticker {
-					s.progress[i] = update
-					found = true
-					break
-				}
-			}
-			if !found {
-				s.progress = append(s.progress, update)
-			}
-			s.mu.Unlock()
-		})
-
-		s.mu.Lock()
-		s.results = results
-		s.lastUsageSummary = &usageSummary
-		s.analysisRunning = false
-		s.mu.Unlock()
-	}()
 }
 
 func (s *Server) handleAnalyzeSingle(w http.ResponseWriter, r *http.Request) {
@@ -215,28 +162,45 @@ func (s *Server) handleAnalyzeSingle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.mu.RLock()
+	if s.tickerRunning[ticker] {
+		s.mu.RUnlock()
+		writeError(w, 409, "analysis already in progress for "+ticker)
+		return
+	}
+	s.mu.RUnlock()
+
 	cfg, err := config.Load()
 	if err != nil {
 		writeError(w, 500, err.Error())
 		return
 	}
 
-	tracker := usage.New(cfg.MaxTokensPerRun, cfg.RequestDelayMs)
-	intel := agent.AnalyzeTicker(ticker, cfg, func(update types.ProgressUpdate) {
-		fmt.Printf("  [%s] %s\n", update.Ticker, update.Step)
-	}, tracker)
-
-	summary := tracker.Summary()
-
 	s.mu.Lock()
-	s.results[ticker] = intel
-	s.lastUsageSummary = &summary
+	s.tickerRunning[ticker] = true
+	s.tickerProgress[ticker] = types.ProgressUpdate{Ticker: ticker, Step: "Starting…", StepIndex: 0, TotalSteps: 3}
 	s.mu.Unlock()
 
-	writeJSON(w, map[string]any{
-		"result": intel,
-		"usage":  summary,
-	})
+	writeJSON(w, map[string]any{"status": "started", "ticker": ticker})
+
+	go func() {
+		tracker := usage.New(cfg.MaxTokensPerRun, cfg.RequestDelayMs)
+		intel := agent.AnalyzeTicker(ticker, cfg, func(update types.ProgressUpdate) {
+			fmt.Printf("  [%s] %s\n", update.Ticker, update.Step)
+			s.mu.Lock()
+			s.tickerProgress[ticker] = update
+			s.mu.Unlock()
+		}, tracker)
+
+		summary := tracker.Summary()
+
+		s.mu.Lock()
+		s.results[ticker] = intel
+		s.lastUsageSummary = &summary
+		delete(s.tickerProgress, ticker)
+		s.tickerRunning[ticker] = false
+		s.mu.Unlock()
+	}()
 }
 
 func (s *Server) handleProgress(w http.ResponseWriter, r *http.Request) {
@@ -249,7 +213,7 @@ func (s *Server) handleProgress(w http.ResponseWriter, r *http.Request) {
 	defer s.mu.RUnlock()
 
 	writeJSON(w, map[string]any{
-		"running":  s.analysisRunning,
-		"progress": s.progress,
+		"tickerProgress": s.tickerProgress,
+		"tickerRunning":  s.tickerRunning,
 	})
 }

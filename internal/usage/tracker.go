@@ -69,8 +69,8 @@ func (t *Tracker) Summary() types.UsageSummary {
 	defer t.mu.Unlock()
 
 	total := t.inputTokens + t.outputTokens
-	// Sonnet pricing: $3/MTok input, $15/MTok output
-	cost := float64(t.inputTokens)/1_000_000*3.0 + float64(t.outputTokens)/1_000_000*15.0
+	// Haiku pricing: $0.80/MTok input, $4/MTok output
+	cost := float64(t.inputTokens)/1_000_000*0.80 + float64(t.outputTokens)/1_000_000*4.0
 
 	budgetPct := 0.0
 	if t.budget > 0 {

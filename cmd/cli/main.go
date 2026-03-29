@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,6 +14,7 @@ import (
 
 func main() {
 	root := findRoot()
+	loadEnv(filepath.Join(root, ".env"))
 	config.Init(filepath.Join(root, "config.json"))
 
 	cfg, err := config.Load()
@@ -118,6 +120,31 @@ func main() {
 		fmt.Printf("  Budget used:    %.1f%%\n", usageSummary.BudgetUsedPct)
 	}
 	fmt.Println()
+}
+
+func loadEnv(path string) {
+	f, err := os.Open(path)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		key, val, ok := strings.Cut(line, "=")
+		if !ok {
+			continue
+		}
+		key = strings.TrimSpace(key)
+		val = strings.TrimSpace(val)
+		if _, exists := os.LookupEnv(key); !exists && val != "" {
+			os.Setenv(key, val)
+		}
+	}
 }
 
 func findRoot() string {

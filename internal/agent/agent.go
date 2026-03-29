@@ -29,9 +29,9 @@ func AnalyzeTicker(ticker string, cfg types.Config, onProgress ProgressFunc, tra
 		}
 	}
 
-	// Step 1: Research (single API call for technicals + news)
+	// Step 1: Research (parallel API calls for technicals + news)
 	report("Researching technicals & news", 1)
-	technicals, news, step1 := steps.FetchAll(ticker, cfg.Model, tracker)
+	technicals, news, sources, step1 := steps.FetchAll(ticker, cfg.Model, tracker)
 	log = append(log, step1)
 
 	// Step 2: Validate (local, no API call)
@@ -65,6 +65,7 @@ func AnalyzeTicker(ticker string, cfg types.Config, onProgress ProgressFunc, tra
 		MASignal:   maSignal,
 		Validation: validation,
 		AgentLog:   log,
+		Sources:    sources,
 	}
 }
 
