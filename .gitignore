@@ -2,3 +2,4 @@ stock-intel-server
 stock-intel-cli
 .env
 *.log
+server
